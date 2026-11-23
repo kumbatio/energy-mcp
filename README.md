@@ -147,4 +147,8 @@ server loads nothing from outside this folder. When those rules change there, th
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+LGPL-3.0-only. See [LICENSE](LICENSE) for the GNU Lesser General Public License, version 3, and
+[COPYING](COPYING) for the GNU General Public License it builds on.
+
+`src/energy-levels.mjs` is ported from `@kumbatio/energy-system`, which is under the MIT license;
+that notice is kept in [licenses/energy-system-MIT.txt](licenses/energy-system-MIT.txt).

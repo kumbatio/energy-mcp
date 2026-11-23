@@ -5,7 +5,7 @@
   "description": "Share the energy level you set (Rest, Low, Steady, Active or Peak) with Claude, so answers, the number of options and unattended steps are sized to it. A local server reads and writes one file on your computer; nothing is sent anywhere.",
   "author": { "name": "Kumbatio", "url": "https://kumbat.io" },
   "homepage": "https://kumbat.io",
-  "license": "MIT",
+  "license": "LGPL-3.0-only",
   "keywords": ["energy", "pacing", "cognitive-load", "adhd", "neurodivergent", "accessibility", "autonomy", "local"],
   "network": { "hosts": [] }
 }

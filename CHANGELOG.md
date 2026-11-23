@@ -19,7 +19,9 @@ All notable changes to `@kumbatio/energy-mcp` are documented here. The format fo
   a title.
 - `initialize` answers with the client's protocol version when it is 2025-11-25, 2025-06-18,
   2025-03-26 or 2024-11-05, and with 2025-11-25 otherwise. It always answered 2024-11-05 before.
-- A LICENSE file (MIT, as in `package.json`).
+- The plugin is licensed under LGPL-3.0-only (`LICENSE`, with the GPL v3 it builds on in
+  `COPYING`). Version 0.1.0 was MIT. The MIT notice of `@kumbatio/energy-system`, which
+  `src/energy-levels.mjs` is ported from, is kept in `licenses/energy-system-MIT.txt`.
 
 ### Changed
 
