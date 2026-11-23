@@ -30,7 +30,8 @@ const SERVER_INFO = {
   version: '0.1.0',
 }
 
-const PROTOCOL_VERSION = '2024-11-05'
+/** Newest first: a client that asks for anything else is answered with the first. */
+const SUPPORTED_PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05']
 
 export function buildGuidancePayload(engine) {
   const state = engine.getState()
@@ -70,34 +71,47 @@ export function createEnergyMcpHandler(options = {}) {
     {
       uri: 'energy://state',
       name: 'Current Energy State',
+      title: 'Energy state',
       description: 'The person’s current self-declared cognitive energy state.',
       mimeType: 'application/json',
     },
     {
       uri: 'energy://autonomy',
       name: 'Automation Autonomy Limits',
+      title: 'Autonomy limits',
       description: 'Confidence floor, draft-composition permission, and unattended step cap.',
       mimeType: 'application/json',
     },
     {
       uri: 'energy://choice-budget',
       name: 'Choice & Density Budget',
+      title: 'Choice budget',
       description: 'How many options and how much detail to present right now.',
       mimeType: 'application/json',
     },
     {
       uri: 'energy://guidance',
       name: 'Assistant Adaptation Guidance',
+      title: 'Guidance',
       description: 'Plain-English instructions for adapting tone, pacing, and autonomy to the person right now.',
       mimeType: 'text/plain',
     },
   ]
 
+  /*
+   * A description says what the tool does and what it returns. When to call a
+   * tool, and what to do with its answer, is in the plugin's skills (skills/).
+   *
+   * Every tool touches one local file and nothing else, hence
+   * `openWorldHint: false`.
+   */
   const tools = [
     {
       name: 'get_energy_guidance',
+      title: 'Read energy guidance',
       description:
-        'Read the person’s current self-declared cognitive capacity (0, 25, 50, 75, or 100) along with choice budget, autonomy limits, and plain-language guidance on how to adapt your response.',
+        'Returns the energy level the person last declared (0 Rest, 25 Low, 50 Steady, 75 Active, 100 Peak) and what it means, as JSON: the stored state (level, timestamp in epoch milliseconds, source, revision, origin), the level’s label and cognitive profile, the autonomy limits, choice budget, task complexity and sensory settings for that level, and plain-language guidance for it. When no level has been stored, the state is the default: level 100 with timestamp 0 and origin "0-initial". Reads one local file and changes nothing.',
+      annotations: { readOnlyHint: true, openWorldHint: false },
       inputSchema: {
         type: 'object',
         properties: {},
@@ -106,8 +120,10 @@ export function createEnergyMcpHandler(options = {}) {
     },
     {
       name: 'check_autonomy_action',
+      title: 'Check an unattended action',
       description:
-        'Check whether a planned unattended automated action is permitted under the person’s current energy level and autonomyStrategy.',
+        'Compares a planned unattended action with the autonomy limits of the person’s current energy level. Returns JSON: `allowed` (true when no limit is exceeded), the current `level`, the `autonomy` limits (confidenceThreshold, allowGeneratedContent, maxUnattendedSteps) and `reasons`, one sentence for each limit the action exceeds. Reads one local file and changes nothing.',
+      annotations: { readOnlyHint: true, openWorldHint: false },
       inputSchema: {
         type: 'object',
         properties: {
@@ -119,12 +135,14 @@ export function createEnergyMcpHandler(options = {}) {
           },
           requiresGeneratedContent: {
             type: 'boolean',
-            description: 'True if the action sends or publishes newly composed wording rather than a fixed template.',
+            description:
+              'True if the action sends or publishes newly composed wording rather than a fixed template. Defaults to false.',
           },
           plannedSteps: {
             type: 'integer',
             minimum: 1,
-            description: 'How many unattended steps the action will chain before returning control.',
+            description:
+              'How many unattended steps the action will chain before returning control. Defaults to 1.',
           },
         },
         required: ['confidence'],
@@ -133,8 +151,22 @@ export function createEnergyMcpHandler(options = {}) {
     },
     {
       name: 'set_energy_level',
+      title: 'Set energy level',
       description:
-        'Update the person’s shared local energy state. ONLY call this when the person explicitly tells you their energy level (never infer or guess it silently).',
+        'Stores a new energy level in the person’s local energy state file, replacing the level stored before, and records it as declared by the person (source "manual"). Other apps that read the same file see the new level. Returns one line confirming the level, followed by the plain-language guidance for it.',
+      /*
+       * It writes, so it is not read-only. It is not destructive: it replaces
+       * one stored value with another, the person can set the earlier level
+       * again, and nothing else is removed. Repeating a call with the same
+       * level leaves that level stored (only the timestamp moves), so it is
+       * idempotent.
+       */
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      },
       inputSchema: {
         type: 'object',
         properties: {
@@ -162,7 +194,9 @@ export function createEnergyMcpHandler(options = {}) {
         jsonrpc: '2.0',
         id,
         result: {
-          protocolVersion: PROTOCOL_VERSION,
+          protocolVersion: SUPPORTED_PROTOCOL_VERSIONS.includes(params.protocolVersion)
+            ? params.protocolVersion
+            : SUPPORTED_PROTOCOL_VERSIONS[0],
           capabilities: {
             resources: { subscribe: false, listChanged: false },
             tools: { listChanged: false },

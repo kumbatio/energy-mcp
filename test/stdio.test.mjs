@@ -112,3 +112,56 @@ void test('the server starts through a symbolic link to its folder', async (t) =
   const init = await server.request('initialize', { protocolVersion: '2024-11-05' })
   assert.equal(init.result.serverInfo.name, '@kumbatio/energy-mcp')
 })
+
+void test('initialize answers with the requested protocol version when the server supports it', async (t) => {
+  const server = startServer(t)
+  const supported = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05']
+  for (const protocolVersion of supported) {
+    const init = await server.request('initialize', { protocolVersion })
+    assert.equal(init.result.protocolVersion, protocolVersion)
+  }
+  // Anything else gets the newest version the server supports.
+  for (const protocolVersion of ['2024-10-07', '2099-01-01', 'latest', undefined, 20251125]) {
+    const init = await server.request('initialize', { protocolVersion })
+    assert.equal(init.result.protocolVersion, '2025-11-25', `requested ${String(protocolVersion)}`)
+  }
+})
+
+void test('tools/list gives every tool a title and annotations', async (t) => {
+  const server = startServer(t)
+  const { tools } = (await server.request('tools/list')).result
+  assert.deepEqual(
+    tools.map((tool) => tool.name),
+    ['get_energy_guidance', 'check_autonomy_action', 'set_energy_level'],
+  )
+
+  for (const tool of tools) {
+    assert.ok(tool.name.length <= 64, `${tool.name} is longer than 64 characters`)
+    assert.equal(typeof tool.title, 'string', `${tool.name} has no title`)
+    assert.ok(tool.title.trim().length > 0, `${tool.name} has an empty title`)
+    assert.equal(typeof tool.annotations, 'object', `${tool.name} has no annotations`)
+    assert.equal(typeof tool.annotations.readOnlyHint, 'boolean', `${tool.name} has no readOnlyHint`)
+    // Descriptions say what a tool does and returns; directions belong in the skills.
+    assert.doesNotMatch(tool.description, /\b(only call|never|always|must|should|your)\b/i, tool.name)
+  }
+
+  const annotations = Object.fromEntries(tools.map((tool) => [tool.name, tool.annotations]))
+  assert.equal(annotations.get_energy_guidance.readOnlyHint, true)
+  assert.equal(annotations.check_autonomy_action.readOnlyHint, true)
+  assert.deepEqual(annotations.set_energy_level, {
+    readOnlyHint: false,
+    destructiveHint: false,
+    idempotentHint: true,
+    openWorldHint: false,
+  })
+})
+
+void test('resources/list gives every resource a title', async (t) => {
+  const server = startServer(t)
+  const { resources } = (await server.request('resources/list')).result
+  assert.equal(resources.length, 4)
+  for (const resource of resources) {
+    assert.equal(typeof resource.title, 'string', `${resource.uri} has no title`)
+    assert.ok(resource.title.trim().length > 0, `${resource.uri} has an empty title`)
+  }
+})
