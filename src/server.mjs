@@ -27,7 +27,7 @@ import {
 
 const SERVER_INFO = {
   name: '@kumbatio/energy-mcp',
-  version: '0.1.0',
+  version: '0.2.0',
 }
 
 /** Newest first: a client that asks for anything else is answered with the first. */

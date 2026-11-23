@@ -1,6 +1,6 @@
 {
   "name": "@kumbatio/energy-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Local Model Context Protocol (MCP) server and terminal dial sharing your cognitive energy state with AI assistants and apps.",
   "type": "module",
   "license": "MIT",

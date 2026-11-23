@@ -1,0 +1,14 @@
+{
+  "name": "kumbatio",
+  "owner": { "name": "Kumbatio", "url": "https://kumbat.io" },
+  "metadata": {
+    "description": "Kumbatio plugins for Claude."
+  },
+  "plugins": [
+    {
+      "name": "kumbatio-energy",
+      "source": "./",
+      "description": "Share the energy level you set with Claude from a file on your computer, so answers, options and unattended steps are sized to it."
+    }
+  ]
+}

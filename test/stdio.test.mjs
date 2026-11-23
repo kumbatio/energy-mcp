@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { cpSync, existsSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import {
+  cpSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import test from 'node:test'
@@ -214,4 +222,21 @@ void test('set_energy_level accepts only one of the five levels, as a number', a
 
   const reply = await server.request('tools/call', { name: 'set_energy_level', arguments: { level: 0 } })
   assert.match(reply.result.content[0].text, /^Energy updated to 0% \(Rest\)/)
+})
+
+void test('the plugin starts the server with the command in .mcp.json, at one version everywhere', async (t) => {
+  const root = dirname(dirname(SERVER))
+  const readJson = (path) => JSON.parse(readFileSync(join(root, path), 'utf8'))
+
+  // The host replaces ${CLAUDE_PLUGIN_ROOT} with the folder the plugin is installed in.
+  const entry = readJson('.mcp.json').mcpServers['kumbatio-energy']
+  assert.equal(entry.command, 'node')
+  assert.deepEqual(entry.args, ['${CLAUDE_PLUGIN_ROOT}/src/server.mjs'])
+  const [serverPath] = entry.args.map((arg) => arg.replace('${CLAUDE_PLUGIN_ROOT}', root))
+  const server = startServer(t, { serverPath })
+
+  const init = await server.request('initialize', { protocolVersion: '2025-11-25' })
+  const { version } = init.result.serverInfo
+  assert.equal(version, readJson('package.json').version)
+  assert.equal(version, readJson('.claude-plugin/plugin.json').version)
 })
