@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
@@ -91,4 +91,24 @@ void test('set_energy_level reports a state file it cannot write and leaves the 
 
   const state = await server.request('resources/read', { uri: 'energy://state' })
   assert.equal(JSON.parse(state.result.contents[0].text).origin, '0-initial')
+})
+
+void test('the server starts from a copy of src/ alone, in a folder with a space in its name', async (t) => {
+  // A plugin is installed wherever the host keeps plugins, so the server must
+  // not depend on its own path or on anything outside its folder.
+  const copy = join(tempDir(t), 'plugin cache', 'src')
+  cpSync(dirname(SERVER), copy, { recursive: true })
+  const server = startServer(t, { serverPath: join(copy, 'server.mjs') })
+
+  const init = await server.request('initialize', { protocolVersion: '2024-11-05' })
+  assert.equal(init.result.serverInfo.name, '@kumbatio/energy-mcp')
+})
+
+void test('the server starts through a symbolic link to its folder', async (t) => {
+  const link = join(tempDir(t), 'linked')
+  symlinkSync(dirname(SERVER), link, 'dir')
+  const server = startServer(t, { serverPath: join(link, 'server.mjs') })
+
+  const init = await server.request('initialize', { protocolVersion: '2024-11-05' })
+  assert.equal(init.result.serverInfo.name, '@kumbatio/energy-mcp')
 })

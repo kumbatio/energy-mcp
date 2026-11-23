@@ -1,5 +1,7 @@
 #!/usr/bin/env node
+import { realpathSync } from 'node:fs'
 import { createInterface } from 'node:readline'
+import { pathToFileURL } from 'node:url'
 
 import {
   autonomyStrategy,
@@ -374,6 +376,13 @@ export function startStdioServer(options = {}) {
   return handler
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+/*
+ * Start only when this file is the one `node` was asked to run (the terminal
+ * dial imports it too). The comparison goes through the real path and a file
+ * URL, because Node resolves links for the entry file and encodes its URL: a
+ * folder reached through a symbolic link, or one with a space in its name,
+ * never equals a URL built from the raw argument.
+ */
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   startStdioServer()
 }
