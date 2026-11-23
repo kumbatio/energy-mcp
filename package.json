@@ -11,9 +11,6 @@
   "scripts": {
     "test": "node --test test/*.test.mjs"
   },
-  "dependencies": {
-    "@kumbatio/energy-system": "file:../energy-system"
-  },
   "engines": {
     "node": ">=22"
   }

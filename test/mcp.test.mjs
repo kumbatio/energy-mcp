@@ -56,7 +56,6 @@ void test('MCP server initializes, reads guidance, checks autonomy, and updates 
     })
     assert.match(guidanceRes.result.contents[0].text, /Low energy \(25%\)/)
   } finally {
-    server.dispose()
     rmSync(dir, { recursive: true, force: true })
   }
 })

@@ -2,12 +2,13 @@
 import {
   autonomyStrategy,
   choiceBudgetStrategy,
-  createEnergyEngine,
+  createEnergyStore,
+  cycleEnergyLevel,
   getEnergyLevel,
   isEnergyLevel,
   notificationStrategy,
-} from '../../energy-system/dist/index.js'
-import { filePersistence, resolveEnergyStatePath } from '../../energy-system/dist/node.js'
+  resolveEnergyStatePath,
+} from './energy-levels.mjs'
 import { startStdioServer } from './server.mjs'
 
 /*
@@ -27,27 +28,20 @@ if (args.includes('--mcp')) {
   startStdioServer()
 } else {
   const filePath = resolveEnergyStatePath()
-  const engine = createEnergyEngine({
-    initialLevel: 100,
-    persistence: filePersistence(filePath),
-    originId: 'kumbatio-energy-cli',
-  })
+  const engine = createEnergyStore({ filePath, originId: 'kumbatio-energy-cli' })
 
   await engine.hydrate()
 
   const cmd = args[0]
   if (cmd === 'cycle') {
-    engine.cycleLevel()
-    await engine.flush()
+    await engine.setLevel(cycleEnergyLevel(engine.getState().level), 'manual')
   } else if (cmd && cmd !== 'status') {
     const parsed = Number(cmd)
     if (!isEnergyLevel(parsed)) {
       console.error('Please pick one of: 100 (Peak), 75 (Active), 50 (Steady), 25 (Low), 0 (Rest).')
-      engine.dispose()
       process.exit(1)
     }
-    engine.setLevel(parsed, 'manual')
-    await engine.flush()
+    await engine.setLevel(parsed, 'manual')
   }
 
   const state = engine.getState()
@@ -58,6 +52,4 @@ if (args.includes('--mcp')) {
   console.log(`  Choices:  ${choiceBudgetStrategy.describe(def.value)}`)
   console.log(`  Autonomy: ${autonomyStrategy.describe(def.value)}`)
   console.log(`  File:     ${filePath}\n`)
-
-  engine.dispose()
 }

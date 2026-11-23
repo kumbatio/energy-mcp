@@ -4,13 +4,13 @@ import { createInterface } from 'node:readline'
 import {
   autonomyStrategy,
   choiceBudgetStrategy,
-  createEnergyEngine,
+  createEnergyStore,
   getEnergyLevel,
   isEnergyLevel,
+  resolveEnergyStatePath,
   sensoryStrategy,
   taskComplexityStrategy,
-} from '../../energy-system/dist/index.js'
-import { filePersistence, resolveEnergyStatePath } from '../../energy-system/dist/node.js'
+} from './energy-levels.mjs'
 
 /*
  * @kumbatio/energy-mcp — Local MCP server (stdio JSON-RPC 2.0)
@@ -59,9 +59,8 @@ export function buildGuidancePayload(engine) {
 
 export function createEnergyMcpHandler(options = {}) {
   const filePath = options.filePath ?? resolveEnergyStatePath()
-  const engine = createEnergyEngine({
-    initialLevel: 100,
-    persistence: filePersistence(filePath),
+  const engine = createEnergyStore({
+    filePath,
     originId: options.originId ?? 'kumbatio-energy-mcp',
   })
 
@@ -292,8 +291,24 @@ export function createEnergyMcpHandler(options = {}) {
             },
           }
         }
-        engine.setLevel(nextLevel, 'manual')
-        await engine.flush()
+        try {
+          await engine.setLevel(nextLevel, 'manual')
+        } catch (err) {
+          const cause = err instanceof Error && err.cause instanceof Error ? ` (${err.cause.message})` : ''
+          return {
+            jsonrpc: '2.0',
+            id,
+            result: {
+              isError: true,
+              content: [
+                {
+                  type: 'text',
+                  text: `The energy level was not changed: could not write ${filePath}${cause}.`,
+                },
+              ],
+            },
+          }
+        }
         const payload = buildGuidancePayload(engine)
         return {
           jsonrpc: '2.0',
@@ -327,9 +342,6 @@ export function createEnergyMcpHandler(options = {}) {
     engine,
     filePath,
     handleRequest,
-    dispose() {
-      engine.dispose()
-    },
   }
 }
 
@@ -357,10 +369,6 @@ export function startStdioServer(options = {}) {
         )
       }
     })()
-  })
-
-  rl.on('close', () => {
-    handler.dispose()
   })
 
   return handler
