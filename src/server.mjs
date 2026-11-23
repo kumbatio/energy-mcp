@@ -33,6 +33,50 @@ const SERVER_INFO = {
 /** Newest first: a client that asks for anything else is answered with the first. */
 const SUPPORTED_PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05']
 
+/** How a rejected argument is quoted back to the caller. */
+function received(value) {
+  return value === undefined ? 'nothing' : JSON.stringify(value)
+}
+
+/**
+ * Check the arguments of `check_autonomy_action` against its input schema.
+ * Returns one sentence per problem; an empty list means the arguments are valid.
+ *
+ * Nothing is coerced. A check that read `"0.9"` as a number, or ignored a
+ * misspelled `plannedSteps` and assumed one step, would answer a question the
+ * caller did not ask.
+ *
+ * @param {unknown} args
+ * @returns {string[]}
+ */
+function autonomyActionProblems(args) {
+  if (typeof args !== 'object' || args === null || Array.isArray(args)) {
+    return [`arguments must be an object (received ${received(args)}).`]
+  }
+
+  const { confidence, requiresGeneratedContent, plannedSteps, ...unknown } = args
+  const problems = []
+
+  if (confidence === undefined) {
+    problems.push('confidence is required: a number from 0 to 1.')
+  } else if (typeof confidence !== 'number' || confidence < 0 || confidence > 1) {
+    problems.push(`confidence must be a number from 0 to 1 (received ${received(confidence)}).`)
+  }
+  if (requiresGeneratedContent !== undefined && typeof requiresGeneratedContent !== 'boolean') {
+    problems.push(
+      `requiresGeneratedContent must be true or false (received ${received(requiresGeneratedContent)}).`,
+    )
+  }
+  if (plannedSteps !== undefined && (!Number.isInteger(plannedSteps) || plannedSteps < 1)) {
+    problems.push(`plannedSteps must be a whole number of 1 or more (received ${received(plannedSteps)}).`)
+  }
+  for (const name of Object.keys(unknown)) {
+    problems.push(`unknown argument: ${name}.`)
+  }
+
+  return problems
+}
+
 export function buildGuidancePayload(engine) {
   const state = engine.getState()
   const definition = getEnergyLevel(state.level)
@@ -280,13 +324,28 @@ export function createEnergyMcpHandler(options = {}) {
       }
 
       if (toolName === 'check_autonomy_action') {
+        const problems = autonomyActionProblems(args)
+        if (problems.length > 0) {
+          return {
+            jsonrpc: '2.0',
+            id,
+            result: {
+              isError: true,
+              content: [
+                {
+                  type: 'text',
+                  text: `Invalid arguments for check_autonomy_action: ${problems.join(' ')}`,
+                },
+              ],
+            },
+          }
+        }
+
         const autonomy = engine.resolve(autonomyStrategy)
-        const confidence = Number(args.confidence)
-        const requiresGenerated = Boolean(args.requiresGeneratedContent)
-        const plannedSteps = Number(args.plannedSteps ?? 1)
+        const { confidence, requiresGeneratedContent: requiresGenerated = false, plannedSteps = 1 } = args
         const reasons = []
 
-        if (!Number.isFinite(confidence) || confidence < autonomy.confidenceThreshold) {
+        if (confidence < autonomy.confidenceThreshold) {
           reasons.push(
             `Confidence ${String(confidence)} is below the current threshold (${String(autonomy.confidenceThreshold)}).`,
           )
@@ -316,14 +375,19 @@ export function createEnergyMcpHandler(options = {}) {
       }
 
       if (toolName === 'set_energy_level') {
-        const nextLevel = Number(args.level)
+        const nextLevel = args.level
         if (!isEnergyLevel(nextLevel)) {
           return {
             jsonrpc: '2.0',
             id,
             result: {
               isError: true,
-              content: [{ type: 'text', text: 'Level must be one of 0, 25, 50, 75, or 100.' }],
+              content: [
+                {
+                  type: 'text',
+                  text: `Level must be one of the numbers 0, 25, 50, 75, or 100 (received ${received(nextLevel)}).`,
+                },
+              ],
             },
           }
         }

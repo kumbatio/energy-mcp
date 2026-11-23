@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { cpSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import test from 'node:test'
@@ -164,4 +164,54 @@ void test('resources/list gives every resource a title', async (t) => {
     assert.equal(typeof resource.title, 'string', `${resource.uri} has no title`)
     assert.ok(resource.title.trim().length > 0, `${resource.uri} has an empty title`)
   }
+})
+
+void test('check_autonomy_action refuses bad input with a message that names the field', async (t) => {
+  const server = startServer(t)
+  const check = (args) => server.request('tools/call', { name: 'check_autonomy_action', arguments: args })
+
+  const bad = [
+    // [arguments, what the message must mention]
+    [{}, /confidence is required/],
+    [{ plannedSteps: 2 }, /confidence is required/],
+    [{ confidence: '0.9' }, /confidence .*number from 0 to 1 \(received "0.9"\)/],
+    [{ confidence: null }, /confidence .*\(received null\)/],
+    [{ confidence: 1.5 }, /confidence .*\(received 1.5\)/],
+    [{ confidence: -0.1 }, /confidence .*\(received -0.1\)/],
+    [{ confidence: 0.9, plannedSteps: 0 }, /plannedSteps .*whole number of 1 or more \(received 0\)/],
+    [{ confidence: 0.9, plannedSteps: 2.5 }, /plannedSteps .*\(received 2.5\)/],
+    [{ confidence: 0.9, plannedSteps: '3' }, /plannedSteps .*\(received "3"\)/],
+    [{ confidence: 0.9, requiresGeneratedContent: 'yes' }, /requiresGeneratedContent .*true or false \(received "yes"\)/],
+    [{ confidence: 0.9, steps: 3 }, /unknown argument: steps/],
+    ['high', /arguments must be an object/],
+    [[0.9], /arguments must be an object/],
+  ]
+  for (const [args, expected] of bad) {
+    const reply = await check(args)
+    assert.equal(reply.result?.isError, true, `accepted ${JSON.stringify(args)}`)
+    assert.match(reply.result.content[0].text, /^Invalid arguments for check_autonomy_action: /)
+    assert.match(reply.result.content[0].text, expected)
+  }
+
+  // Every problem is reported at once.
+  const both = await check({ confidence: 2, plannedSteps: 0 })
+  assert.match(both.result.content[0].text, /confidence .*plannedSteps /)
+
+  // Valid input is still answered, with the documented defaults.
+  const ok = await check({ confidence: 0.6 })
+  assert.equal(ok.result.isError, undefined)
+  assert.equal(JSON.parse(ok.result.content[0].text).allowed, true)
+})
+
+void test('set_energy_level accepts only one of the five levels, as a number', async (t) => {
+  const server = startServer(t)
+  for (const level of [null, '25', '', true, 30, 25.5, undefined]) {
+    const reply = await server.request('tools/call', { name: 'set_energy_level', arguments: { level } })
+    assert.equal(reply.result?.isError, true, `accepted ${JSON.stringify(level)}`)
+    assert.match(reply.result.content[0].text, /^Level must be one of the numbers 0, 25, 50, 75, or 100/)
+  }
+  assert.equal(existsSync(server.filePath), false, 'nothing was written')
+
+  const reply = await server.request('tools/call', { name: 'set_energy_level', arguments: { level: 0 } })
+  assert.match(reply.result.content[0].text, /^Energy updated to 0% \(Rest\)/)
 })
