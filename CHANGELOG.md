@@ -44,6 +44,8 @@ All notable changes to `@kumbatio/energy-mcp` are documented here. The format fo
   error with the path and the reason, and the level stays as it was.
 - The server did not start, and answered nothing, when its folder had a space in its path or was
   reached through a symbolic link.
+- The terminal dial never returned when the state file could not be written. It now exits with
+  the error and status 1.
 
 ## [0.1.0]
 

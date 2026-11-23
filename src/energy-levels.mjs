@@ -4,8 +4,8 @@
  * loads nothing from outside it.
  *
  * Ported from @kumbatio/energy-system 3.0.0 (commit dfd5cbb, MIT). Each section
- * names the source file and lines it was taken from. Values, messages and the
- * order of checks are unchanged; TypeScript types became JSDoc.
+ * names the source file and lines it was taken from. Values, the order of
+ * checks and the text of messages are unchanged; TypeScript types became JSDoc.
  *
  * Reduced on purpose, compared with the library:
  *
@@ -21,6 +21,12 @@
  *   retried the write in the background, which left a caller waiting on
  *   `flush()` for as long as the write kept failing.
  * - Only the strategies and the strategy methods this folder calls are here.
+ * - Contained errors are logged with the prefix `[energy-mcp]`, where the
+ *   library writes `[energy-system]`.
+ * - `writeStateFile` creates the folder inside its `try`, so a folder that
+ *   cannot be created is reported with the file's path like any other failed
+ *   write. It does not parse the state again before writing: every state here
+ *   comes from `createEnergyState`.
  *
  * When energy-system changes any of these rules, change them here too.
  */

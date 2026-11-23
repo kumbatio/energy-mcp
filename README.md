@@ -91,8 +91,9 @@ answer, and acting on it is up to the assistant.
   your conversation with Claude, which Anthropic handles under its own terms.
 
 Other apps on your computer that follow the same convention read and write the same file, so a
-level set in one place is seen by all of them. To stop sharing the level, uninstall the plugin; to
-erase it, delete the file.
+level set in one place is seen by all of them. To stop sharing the level, uninstall the plugin. To
+erase it, delete the file: a server that is already running keeps the last level it read until it
+exits, and a new one starts from the default.
 
 ## Requirements
 
